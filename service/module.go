@@ -5,19 +5,22 @@ import (
 	"sync"
 )
 
-type client chan<- Message // Канал исходящих сообщений
-
 var (
 	chathistory []string
-	users       = make(map[string]net.Conn)
-	join        = make(chan Message)
-	leaving     = make(chan Message)
+	users       = make(map[User]bool)
+	entering    = make(chan User)
+	leaving     = make(chan User)
 	messages    = make(chan Message) // Все входящие сообщения клиента
 	mutex       sync.Mutex
 )
 
+type User struct {
+	name string
+	conn net.Conn
+}
+
 type Message struct {
-	msg      string
-	userName string
-	time     string
+	msg  string
+	user User
+	time string
 }

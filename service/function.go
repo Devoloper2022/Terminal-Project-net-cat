@@ -44,7 +44,7 @@ func Nikcname(conn net.Conn) string {
 		}
 	}
 	for user, _ := range users {
-		if user == name {
+		if user.name == name {
 			fmt.Fprintf(conn, "User already exist\n")
 			return Nikcname(conn)
 		}
@@ -52,10 +52,19 @@ func Nikcname(conn net.Conn) string {
 	return name
 }
 
-func newMessage(msg string, user string, time string) Message {
+func newMessage(msg string, user User, time string) Message {
 	return Message{
-		msg:      msg,
-		userName: user,
-		time:     time,
+		msg:  msg,
+		user: user,
+		time: time,
 	}
+}
+
+func TextChecker(s string) bool {
+	for _, ch := range s {
+		if ch < 32 || ch > 127 {
+			return false
+		}
+	}
+	return true
 }

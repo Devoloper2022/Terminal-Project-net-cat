@@ -24,15 +24,18 @@ func main() {
 	fmt.Println("Listening on the port :" + port)
 
 	go service.Broadcaster()
-
+	fmt.Println(2.1)
 	for {
+		fmt.Println(1.1)
 		conn, err := server.Accept()
 		if err != nil {
 			log.Fatal("connection err: %v", err)
 			continue
 		}
+		fmt.Println(1.2)
 
 		go service.Handle(conn) // start new goroutine per connection
+		fmt.Println(1.3)
 
 	}
 }

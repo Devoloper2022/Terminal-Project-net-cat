@@ -8,70 +8,108 @@ import (
 )
 
 func Handle(conn net.Conn) {
+	// checkers for Lengthof chat / Name
+	mutex.Lock()
 	if len(users) > 9 {
 		conn.Write([]byte("Chat is full 10/10"))
 		conn.Close()
 		return
 	}
+	mutex.Unlock()
 
 	LoadLogo(conn)
-	name := Nikcname(conn)
 
-	mutex.Lock()
-	users[name] = conn
-	mutex.Unlock()
+	// prepartion of Users
+	who := Nikcname(conn)
 
-	mutex.Lock()
-	for _, v := range chathistory {
-		fmt.Fprintln(conn, string(v))
+	newUser := User{
+		conn: conn,
+		name: who,
 	}
-	mutex.Unlock()
 
+	// notificaion all users about new user
+	entering <- newUser
+	messages <- newMessage("has joined our chat...", newUser, "")
+
+	// First message
 	t := time.Now().Format("2020-01-20 16:03:43")
-
-	mutex.Lock()
-	join <- newMessage("has joined our chat...", name, t)
-	mutex.Unlock()
+	txt := fmt.Sprintf("[%s][%s]:", t, who)
+	fmt.Fprintf(conn, txt)
 
 	input := bufio.NewScanner(conn)
-	for input.Scan() {
-		t := time.Now().Format("2020-01-20 16:03:43")
 
-		mutex.Lock()
-		messages <- newMessage(input.Text(), name, t)
-		mutex.Unlock()
+	for input.Scan() {
+		txt = input.Text()
+		if txt == "" || len(txt) < 1 {
+			fmt.Fprintf(conn, "Empty text\n")
+			fmt.Fprintf(conn, "[%s][%s]:", t, who)
+			continue
+		} else {
+			if !TextChecker(txt) {
+				fmt.Fprintf(conn, "Incorrect text\n")
+				fmt.Fprintf(conn, "[%s][%s]:", t, who)
+				continue
+			} else {
+				mutex.Lock()
+				messages <- newMessage(txt, newUser, t)
+				mutex.Unlock()
+
+				text := fmt.Sprintf("[%s][%s]:%s\n", t, who, txt)
+
+				mutex.Lock()
+				chathistory = append(chathistory, text)
+				mutex.Unlock()
+
+				t = time.Now().Format("2020-01-20 16:03:43")
+				mutex.Lock()
+
+				mutex.Unlock()
+				continue
+			}
+		}
+
 	}
+
+	// left user
 	mutex.Lock()
-	delete(users, name)
-	leaving <- newMessage("has left our chat...", name, time.Now().Format(""))
-	mutex.Unlock()
+	messages <- newMessage("has left our chat...", newUser, "")
+
+	leaving <- newUser
 	conn.Close()
+	mutex.Unlock()
 }
 
 func Broadcaster() {
 	for {
 		select {
 		case msg := <-messages:
-			mutex.Lock()
-			for user, c := range users {
-				fmt.Fprintf(c, "\n %s %s\n", msg.userName, msg.msg)
-			}
-			mutex.Unlock()
-		case msg := <-join:
-			mutex.Lock()
-			for user, c := range users {
-				if msg.userName != user {
-					fmt.Fprintf(c, "\n %s %s\n", msg.userName, msg.msg)
+			// mutex.Lock()
+
+			for user, _ := range users {
+				if user.name != msg.user.name {
+					if msg.time != "" {
+						fmt.Fprintf(user.conn, "\n[%s][%s]: %s\n", msg.time, msg.user.name, msg.msg)
+					} else {
+						fmt.Fprintf(user.conn, "\n%s %s\n", msg.user.name, msg.msg)
+					}
+					t := time.Now().Format("2020-01-20 16:03:43")
+					fmt.Fprintf(user.conn, "[%s][%s]:", t, user.name)
+				} else {
+					fmt.Fprintf(msg.user.conn, "[%s][%s]:", msg.time, msg.user.name)
 				}
 			}
-			mutex.Unlock()
-		case msg := <-leaving:
+			fmt.Println("end mess")
+			// mutex.Unlock()
+		case user := <-entering:
 			mutex.Lock()
-			for user, c := range users {
-				if msg.userName != user {
-					fmt.Fprintf(c, "\n %s %s\n", msg.userName, msg.msg)
-				}
+			users[user] = true
+			for _, w := range chathistory {
+				fmt.Fprintf(user.conn, "%s", w)
 			}
+			mutex.Unlock()
+		case user := <-leaving:
+			mutex.Lock()
+			delete(users, user)
 			mutex.Unlock()
 		}
 	}
