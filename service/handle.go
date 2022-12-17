@@ -10,10 +10,9 @@ import (
 func Handle(conn net.Conn) {
 	// checkers for Lengthof chat / Name
 	mutex.Lock()
-	if len(users) > 9 {
+	if len(users)+1 > 10 {
 		conn.Write([]byte("Chat is full 10/10"))
 		conn.Close()
-		return
 	}
 	mutex.Unlock()
 
@@ -95,10 +94,11 @@ func Broadcaster() {
 					t := time.Now().Format("2020-01-20 16:03:43")
 					fmt.Fprintf(user.conn, "[%s][%s]:", t, user.name)
 				} else {
-					fmt.Fprintf(msg.user.conn, "[%s][%s]:", msg.time, msg.user.name)
+					if msg.time != "" {
+						fmt.Fprintf(msg.user.conn, "[%s][%s]:", msg.time, msg.user.name)
+					}
 				}
 			}
-			fmt.Println("end mess")
 			// mutex.Unlock()
 		case user := <-entering:
 			mutex.Lock()
